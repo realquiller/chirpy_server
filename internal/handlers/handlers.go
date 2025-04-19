@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func MyHandler(w http.ResponseWriter, r *http.Request) {
+func ReadinessHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Set the Content-Type
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 

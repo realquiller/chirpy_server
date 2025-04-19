@@ -3,17 +3,23 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"github.com/realquiller/chirpy_server/internal/handlers"
 )
 
 func main() {
 	mux := http.NewServeMux()
+
+	// Health check
+	mux.HandleFunc("/healthz", handlers.ReadinessHandler)
+
+	// App handler
+	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir("./app/"))))
+
 	server := &http.Server{
 		Handler: mux,
 		Addr:    ":8080",
 	}
-
-	http.HandleFunc("/", MyHandler)
-	http.HandleFunc("/healthz", ReadinessHandler)
 
 	log.Fatal(server.ListenAndServe())
 }
