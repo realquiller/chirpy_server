@@ -1,20 +1,66 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/realquiller/chirpy_server/internal/database"
 	"github.com/realquiller/chirpy_server/internal/handlers"
 )
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	dbQueries := database.New(db)
+
 	mux := http.NewServeMux()
 
+	apiCfg := handlers.ApiConfig{}
+
+	apiCfg.Platform = os.Getenv("PLATFORM")
+
+	apiCfg.DbQueries = dbQueries
+
+	apiCfg.Secret = os.Getenv("SECRET")
+
 	// Health check
-	mux.HandleFunc("/healthz", handlers.ReadinessHandler)
+	mux.HandleFunc("GET /api/healthz", handlers.ReadinessHandler)
 
 	// App handler
-	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir("./app/"))))
+	mux.Handle("/app/", apiCfg.MiddlewareMetricsInc(
+		http.StripPrefix("/app/", http.FileServer(http.Dir("./app/"))),
+	))
+
+	// Metrics handler
+	mux.HandleFunc("GET /admin/metrics", apiCfg.MetricsHandler)
+
+	// Reset handler
+	mux.HandleFunc("POST /admin/reset", apiCfg.ResetHandler)
+
+	// NewUser handler
+	mux.HandleFunc("POST /api/users", apiCfg.NewUserHandler)
+
+	// Chirp handler
+	mux.HandleFunc("POST /api/chirps", apiCfg.ChirpHandler)
+
+	// GetChirps handler
+	mux.HandleFunc("GET /api/chirps", apiCfg.GetChirpsHandler)
+
+	// GetChirp handler
+	mux.HandleFunc("GET /api/chirps/{chirpid}", apiCfg.GetChirpHandler)
+
+	// Login handler
+	mux.HandleFunc("POST /api/login", apiCfg.LoginHandler)
 
 	server := &http.Server{
 		Handler: mux,
@@ -25,3 +71,7 @@ func main() {
 }
 
 // go build -o out && ./out
+
+// postgres: sudo -u postgres psql
+// connection string: psql "postgres://postgres:postgres@localhost:5432/chirpy"
+// goose: goose postgres postgres://postgres:postgres@localhost:5432/chirpy up
