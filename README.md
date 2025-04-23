@@ -4,8 +4,10 @@ A backend API for **Chirpy**, a minimalist Twitter clone built with Go. This pro
 
 This project includes JWT-based authentication, refresh token support, secure webhook handling, and CRUD operations for user-generated chirps.
 
+
 > ⚠️ Educational project — not production-ready.  
 > API keys and secrets in this repo are random or dummy.
+
 
 ---
 
@@ -46,20 +48,20 @@ POLKA_KEY=f271c81ff7084ee5b99a5091b42d486e
 PLATFORM=dev
 ```
 
-## 🛠️ Getting Started
+# 🛠️ Getting Started
 
-# Clone the repo
+## Clone the repo
 git clone https://github.com/realquiller/chirpy_server.git
 cd chirpy_server
 
-# Set up environment
+## Set up environment
 cp .env.example .env
 
-# Run database migrations
+## Run database migrations
 go install github.com/pressly/goose/v3/cmd/goose@latest
 goose postgres "$DB_URL" up
 
-# Build and run the app
+## Build and run the app
 go build -o out && ./out
 
 # 📡 Endpoints Overview
@@ -77,7 +79,7 @@ go build -o out && ./out
 | POST   | `/api/revoke`               | Revoke refresh token                     |
 | POST   | `/api/polka/webhooks`       | Handle Chirpy Red upgrade (via Polka)    |
 
-## 🎯 Project Goals
+# 🎯 Project Goals
 
 This project helped me practice:
 
@@ -88,7 +90,7 @@ This project helped me practice:
 - Building idempotent webhooks  
 - Managing edge cases, 401s, 403s, etc.
 
-## 🧠 Lessons Learned
+# 🧠 Lessons Learned
 
 - 🔐 Don’t trust incoming requests — always verify.  
 - 🚦 Use status codes precisely: 204, 403, 401, 404 all have meaning.  
@@ -96,7 +98,7 @@ This project helped me practice:
 - 🧹 It pays off to keep handlers clean and structured.  
 - 👀 Readability matters — especially when debugging with sleep-deprived eyes.
 
-## 🪪 License
+# 🪪 License
 
 This is a learning project and has no license. Feel free to peek and learn.  
 If you wanna collab on cool Go stuff, hit me up 😎
