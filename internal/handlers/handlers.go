@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"sort"
 
 	"database/sql"
 
@@ -24,6 +25,7 @@ type ApiConfig struct {
 	DbQueries      *database.Queries
 	Platform       string
 	Secret         string
+	PolkaKey       string
 }
 
 type User struct {
@@ -34,6 +36,7 @@ type User struct {
 	Password     string    `json:"password"`
 	Token        string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
 
 type Chirp struct {
@@ -133,16 +136,68 @@ func (cfg *ApiConfig) NewUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed,
 	}, http.StatusCreated)
 }
 
 func (cfg *ApiConfig) GetChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	author_id := r.URL.Query().Get("author_id")
+	sort_input := r.URL.Query().Get("sort")
+	sort_asc := true
 
-	chirps, err := cfg.DbQueries.GetChirps(context.Background())
+	if len(sort_input) > 0 {
+		if sort_input == "desc" {
+			sort_asc = false
+		}
+	}
+
+	if len(author_id) > 0 {
+		// parse the id into uuid
+		parsedID, err := uuid.Parse(author_id)
+
+		//check if the id is valid uuid
+		if err != nil {
+			respondWithError(w, "Invalid author id", http.StatusBadRequest)
+			return
+		}
+		chirps_author, err := cfg.DbQueries.GetChirpsByAuthor(r.Context(), parsedID)
+
+		if err != nil {
+			respondWithError(w, "Error getting chirps from GetChirpsByAuthor function", http.StatusInternalServerError)
+			return
+		}
+
+		chirps_author_list := []Chirp{}
+
+		for _, chirp := range chirps_author {
+			chirps_author_list = append(chirps_author_list, Chirp{
+				ID:        chirp.ID,
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body:      chirp.Body,
+				UserID:    chirp.UserID,
+			})
+		}
+
+		if sort_asc {
+			sort.Slice(chirps_author_list, func(i, j int) bool {
+				return chirps_author_list[i].CreatedAt.Before(chirps_author_list[j].CreatedAt)
+			})
+		} else {
+			sort.Slice(chirps_author_list, func(i, j int) bool {
+				return chirps_author_list[j].CreatedAt.Before(chirps_author_list[i].CreatedAt)
+			})
+		}
+
+		respondWithJSON(w, chirps_author_list, http.StatusOK)
+		return
+	}
+
+	chirps, err := cfg.DbQueries.GetChirps(r.Context())
 	if err != nil {
 		respondWithError(w, "Error getting chirps from GetChirps function", http.StatusInternalServerError)
 		return
@@ -157,6 +212,16 @@ func (cfg *ApiConfig) GetChirpsHandler(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
 			UserID:    chirp.UserID,
+		})
+	}
+
+	if sort_asc {
+		sort.Slice(chirp_list, func(i, j int) bool {
+			return chirp_list[i].CreatedAt.Before(chirp_list[j].CreatedAt)
+		})
+	} else {
+		sort.Slice(chirp_list, func(i, j int) bool {
+			return chirp_list[j].CreatedAt.Before(chirp_list[i].CreatedAt)
 		})
 	}
 
@@ -310,6 +375,7 @@ func (cfg *ApiConfig) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		Token:        token,
 		RefreshToken: refresh_token.Token,
+		IsChirpyRed:  user.IsChirpyRed,
 	}, http.StatusOK)
 
 }
@@ -366,11 +432,103 @@ func (cfg *ApiConfig) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondWithJSON(w, User{
-		ID:        updated_user.ID,
-		CreatedAt: updated_user.CreatedAt,
-		UpdatedAt: updated_user.UpdatedAt,
-		Email:     updated_user.Email,
+		ID:          updated_user.ID,
+		CreatedAt:   updated_user.CreatedAt,
+		UpdatedAt:   updated_user.UpdatedAt,
+		Email:       updated_user.Email,
+		IsChirpyRed: updated_user.IsChirpyRed,
 	}, http.StatusOK)
+}
+
+func (cfg *ApiConfig) WebhookUpgradeUserHandler(w http.ResponseWriter, r *http.Request) {
+	api_key, err := auth.GetAPIKey(r.Header)
+
+	if err != nil {
+		respondWithError(w, "Invalid API format", http.StatusUnauthorized)
+		return
+	}
+
+	if api_key != cfg.PolkaKey {
+		respondWithError(w, "Invalid API key", http.StatusUnauthorized)
+		return
+	}
+
+	type WebhookUpgrade struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID string `json:"user_id"`
+		} `json:"data"`
+	}
+
+	var webhook WebhookUpgrade
+	if err := json.NewDecoder(r.Body).Decode(&webhook); err != nil {
+		respondWithError(w, "Error decoding JSON in WebhookUpgrade", http.StatusInternalServerError)
+		return
+	}
+
+	if webhook.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	user_id, err := uuid.Parse(webhook.Data.UserID)
+
+	if err != nil {
+		respondWithError(w, "Invalid user ID format", http.StatusBadRequest)
+		return
+	}
+
+	err = cfg.DbQueries.UpgradeUser(r.Context(), user_id)
+	if err != nil {
+		respondWithError(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+}
+
+func (cfg *ApiConfig) DeleteChirpHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("chirpid")
+	input_chirp, err := uuid.Parse(id)
+	if err != nil {
+		respondWithError(w, "Invalid chirp ID", http.StatusBadRequest)
+		return
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil || token == "" {
+		respondWithError(w, "Token is missing", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.Secret)
+
+	if err != nil {
+		respondWithError(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	db_chirp, err := cfg.DbQueries.GetChirp(r.Context(), input_chirp)
+
+	if err != nil {
+		respondWithError(w, "Chirp wasn't found", http.StatusNotFound)
+		return
+	}
+
+	if userID != db_chirp.UserID {
+		respondWithError(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	err = cfg.DbQueries.DeleteChirp(r.Context(), input_chirp)
+
+	if err != nil {
+		respondWithError(w, "Error deleting chirp", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (cfg *ApiConfig) RefreshHandler(w http.ResponseWriter, r *http.Request) {

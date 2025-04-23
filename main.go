@@ -32,6 +32,7 @@ func main() {
 	apiCfg.DbQueries = dbQueries
 
 	apiCfg.Secret = os.Getenv("SECRET")
+	apiCfg.PolkaKey = os.Getenv("POLKA_KEY")
 
 	// Health check
 	mux.HandleFunc("GET /api/healthz", handlers.ReadinessHandler)
@@ -70,6 +71,12 @@ func main() {
 
 	// UpdateUser handler
 	mux.HandleFunc("PUT /api/users", apiCfg.UpdateUserHandler)
+
+	// DeleteChirp handler
+	mux.HandleFunc("DELETE /api/chirps/{chirpid}", apiCfg.DeleteChirpHandler)
+
+	// WebhookUpgradeUser handler
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.WebhookUpgradeUserHandler)
 
 	server := &http.Server{
 		Handler: mux,
