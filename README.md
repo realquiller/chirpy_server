@@ -49,18 +49,26 @@ PLATFORM=dev
 # 🛠️ Getting Started
 
 ## Clone the repo
+``` bash
 git clone https://github.com/realquiller/chirpy_server.git
 cd chirpy_server
+```
 
 ## Set up environment
+``` bash
 cp .env.example .env
+```
 
 ## Run database migrations
+``` bash
 go install github.com/pressly/goose/v3/cmd/goose@latest
 goose postgres "$DB_URL" up
+```
 
 ## Build and run the app
+``` bash
 go build -o out && ./out
+```
 
 # 📡 Endpoints Overview
 | Method | Route                       | Description                              |
@@ -96,7 +104,7 @@ This project helped me practice:
 - 🧹 It pays off to keep handlers clean and structured.  
 - 👀 Readability matters — especially when debugging with sleep-deprived eyes.
 
-# 🪪 License
+# License
 
 This is a learning project and has no license. Feel free to peek and learn.  
 If you wanna collab on cool Go stuff, hit me up 😎
