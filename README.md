@@ -104,7 +104,7 @@ This project helped me practice:
 - 🧹 It pays off to keep handlers clean and structured.  
 - 👀 Readability matters — especially when debugging with sleep-deprived eyes.
 
-# License
+# 📔 License
 
 This is a learning project and has no license. Feel free to peek and learn.  
 If you wanna collab on cool Go stuff, hit me up 😎
