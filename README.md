@@ -4,10 +4,8 @@ A backend API for **Chirpy**, a minimalist Twitter clone built with Go. This pro
 
 This project includes JWT-based authentication, refresh token support, secure webhook handling, and CRUD operations for user-generated chirps.
 
-
 > ⚠️ Educational project — not production-ready.  
 > API keys and secrets in this repo are random or dummy.
-
 
 ---
 
